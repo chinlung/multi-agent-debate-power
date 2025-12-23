@@ -112,3 +112,4 @@ node_modules/
 # Temporary folders
 tmp/
 temp/
+.kiro/settings/mcp.json
