@@ -16,14 +16,12 @@ async function executeCompleteDebate(userRequirement, maxRounds = 10) {
   let debateHistory = []
   let currentAgentStates = {}
   
-  // Phase 0 + 1: 初始方案生成（並行）
-  console.log("📋 Phase 0+1: 並行生成初始方案...")
+  // Phase 0: 需求分析與角度配置（序列執行）
+  console.log("📋 Phase 0: Orchestrator 分析需求並配置角度...")
   
-  const [orchestrator, agentA, agentB, agentC] = await Promise.all([
-    
-    invokeSubAgent({
-      name: "general-task-execution",
-      prompt: `
+  const orchestrator = await invokeSubAgent({
+    name: "general-task-execution",
+    prompt: `
 你是 Orchestrator（協調者）。
 
 需求描述：${userRequirement}
@@ -41,27 +39,47 @@ async function executeCompleteDebate(userRequirement, maxRounds = 10) {
 - 技術選型：主流穩定 vs 新興技術 vs 自研方案
 
 輸出格式參考 agent-definitions.md 中的 Orchestrator 格式。
-      `,
-      explanation: "Orchestrator 分析需求並配置角度"
-    }),
 
+**重要**：請在輸出中明確指定三個 Agent 的思考角度：
+- Agent A 角度：[具體角度名稱]
+- Agent B 角度：[具體角度名稱]  
+- Agent C 角度：[具體角度名稱]
+    `,
+    explanation: "Phase 0: Orchestrator 分析需求並配置角度"
+  })
+
+  console.log("✅ Phase 0 完成，Orchestrator 已配置角度")
+  
+  // 從 Orchestrator 結果中提取角度配置
+  const angleConfig = extractAnglesFromOrchestrator(orchestrator)
+  
+  console.log("🎭 提取到的角度配置：", angleConfig)
+
+  // Phase 1: 初始方案生成（並行，使用 Orchestrator 配置的角度）
+  console.log("📋 Phase 1: 並行生成初始方案（使用動態角度）...")
+  
+  const [agentA, agentB, agentC] = await Promise.all([
+    
     invokeSubAgent({
       name: "general-task-execution",
       prompt: `
 你是 Perspective Agent A。
 
 需求描述：${userRequirement}
-思考角度：實用性優先（預設，Orchestrator 可能會調整）
+思考角度：${angleConfig.agentA}（由 Orchestrator 分析決定）
+
+Orchestrator 的完整分析：
+${orchestrator}
 
 請執行：
 1. 使用 mcp_sequential_thinking_sequentialthinking 深度分析
 2. 如需技術資料，使用 mcp_context7_resolve_library_id 和 mcp_context7_get_library_docs
 3. 如需程式碼分析，使用 serena 相關工具
-4. 從實用性角度提出完整解決方案
+4. 從「${angleConfig.agentA}」角度提出完整解決方案
 
 輸出格式參考 agent-definitions.md 中的 Agent A 方案格式。
       `,
-      explanation: "Agent A 提出實用性方案"
+      explanation: `Agent A 提出 ${angleConfig.agentA} 方案`
     }),
 
     invokeSubAgent({
@@ -70,17 +88,20 @@ async function executeCompleteDebate(userRequirement, maxRounds = 10) {
 你是 Perspective Agent B。
 
 需求描述：${userRequirement}
-思考角度：品質優先（預設，Orchestrator 可能會調整）
+思考角度：${angleConfig.agentB}（由 Orchestrator 分析決定）
+
+Orchestrator 的完整分析：
+${orchestrator}
 
 請執行：
 1. 使用 mcp_sequential_thinking_sequentialthinking 深度分析
 2. 如需技術資料，使用 context7 工具
 3. 如需程式碼分析，使用 serena 工具
-4. 從品質角度提出完整解決方案
+4. 從「${angleConfig.agentB}」角度提出完整解決方案
 
 輸出格式參考 agent-definitions.md 中的 Agent B 方案格式。
       `,
-      explanation: "Agent B 提出品質方案"
+      explanation: `Agent B 提出 ${angleConfig.agentB} 方案`
     }),
 
     invokeSubAgent({
@@ -89,17 +110,20 @@ async function executeCompleteDebate(userRequirement, maxRounds = 10) {
 你是 Perspective Agent C。
 
 需求描述：${userRequirement}
-思考角度：平衡性優先（預設，Orchestrator 可能會調整）
+思考角度：${angleConfig.agentC}（由 Orchestrator 分析決定）
+
+Orchestrator 的完整分析：
+${orchestrator}
 
 請執行：
 1. 使用 mcp_sequential_thinking_sequentialthinking 深度分析
 2. 如需技術資料，使用 context7 工具
 3. 如需程式碼分析，使用 serena 工具
-4. 從平衡角度提出完整解決方案
+4. 從「${angleConfig.agentC}」角度提出完整解決方案
 
 輸出格式參考 agent-definitions.md 中的 Agent C 方案格式。
       `,
-      explanation: "Agent C 提出平衡方案"
+      explanation: `Agent C 提出 ${angleConfig.agentC} 方案`
     })
   ])
 
@@ -426,6 +450,95 @@ ${JSON.stringify(debateHistory, null, 2)}
 ```
 
 ## 🎯 輔助函數實作
+
+### 角度提取函數
+
+```javascript
+function extractAnglesFromOrchestrator(orchestratorResult) {
+  
+  // 嘗試從 Orchestrator 結果中提取角度配置
+  const result = orchestratorResult.toString()
+  
+  // 使用正則表達式提取角度配置
+  const agentAMatch = result.match(/Agent A[^:]*[:：]\s*([^\n\r]+)/i)
+  const agentBMatch = result.match(/Agent B[^:]*[:：]\s*([^\n\r]+)/i)
+  const agentCMatch = result.match(/Agent C[^:]*[:：]\s*([^\n\r]+)/i)
+  
+  // 如果成功提取到角度，使用提取的結果
+  if (agentAMatch && agentBMatch && agentCMatch) {
+    return {
+      agentA: agentAMatch[1].trim(),
+      agentB: agentBMatch[1].trim(),
+      agentC: agentCMatch[1].trim()
+    }
+  }
+  
+  // 如果提取失敗，嘗試從表格格式提取
+  const tableMatches = result.match(/\|\s*([ABC])\s*\|\s*([^|]+)\s*\|/g)
+  if (tableMatches && tableMatches.length >= 3) {
+    const angles = {}
+    tableMatches.forEach(match => {
+      const parts = match.split('|').map(p => p.trim())
+      if (parts.length >= 3) {
+        const agent = parts[1]
+        const angle = parts[2]
+        if (['A', 'B', 'C'].includes(agent)) {
+          angles[`agent${agent}`] = angle
+        }
+      }
+    })
+    
+    if (angles.agentA && angles.agentB && angles.agentC) {
+      return angles
+    }
+  }
+  
+  // 如果都提取失敗，分析需求類型並使用預設配置
+  console.log("⚠️  無法從 Orchestrator 結果提取角度，使用智能預設配置")
+  
+  const requirement = orchestratorResult.toString().toLowerCase()
+  
+  // 根據需求關鍵字智能選擇角度
+  if (requirement.includes('架構') || requirement.includes('設計') || requirement.includes('系統')) {
+    return {
+      agentA: "效能優先",
+      agentB: "可維護性優先", 
+      agentC: "擴展性優先"
+    }
+  } else if (requirement.includes('功能') || requirement.includes('開發') || requirement.includes('實作')) {
+    return {
+      agentA: "快速交付",
+      agentB: "品質優先",
+      agentC: "使用者體驗優先"
+    }
+  } else if (requirement.includes('效能') || requirement.includes('優化') || requirement.includes('速度')) {
+    return {
+      agentA: "演算法優化",
+      agentB: "快取策略",
+      agentC: "架構重構"
+    }
+  } else if (requirement.includes('問題') || requirement.includes('修復') || requirement.includes('bug')) {
+    return {
+      agentA: "快速修補",
+      agentB: "根本解決",
+      agentC: "防禦性重構"
+    }
+  } else if (requirement.includes('技術') || requirement.includes('選型') || requirement.includes('框架')) {
+    return {
+      agentA: "主流穩定",
+      agentB: "新興技術",
+      agentC: "自研方案"
+    }
+  } else {
+    // 通用預設角度
+    return {
+      agentA: "實用性優先",
+      agentB: "品質優先",
+      agentC: "平衡性優先"
+    }
+  }
+}
+```
 
 ### 共識檢查函數
 
