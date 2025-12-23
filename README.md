@@ -15,6 +15,7 @@
 - **完整記錄**：保存完整的辯證過程和決策依據
 - **MCP 工具整合**：整合 sequential-thinking、context7、serena 工具
 - **Kiro Subagent 支援**：使用 Kiro 原生的 subagent 系統執行
+- **關鍵字自動觸發**：智能檢測需求並自動啟動辯證分析
 
 ## 🎯 適用場景
 
@@ -62,6 +63,13 @@
 
 2. **基本使用範例**：
    ```bash
+   # 自動觸發（推薦）
+   "請對電商推薦系統進行多角度辯證分析"
+   
+   # 參數化使用
+   "辯證分析微服務架構，最多 5 輪，從效能、維護性、成本角度"
+   
+   # 手動觸發
    /debate 我想為電商網站新增商品推薦功能
    ```
 
@@ -82,6 +90,8 @@ Power 安裝後，您可以透過以下方式存取完整文檔：
 - **代理定義**：`Call action "readSteering" with powerName="multi-agent-debate", steeringFile="agent-definitions.md"`
 - **使用範例**：`Call action "readSteering" with powerName="multi-agent-debate", steeringFile="usage-examples.md"`
 - **實作指南**：`Call action "readSteering" with powerName="multi-agent-debate", steeringFile="implementation-guide.md"`
+- **完整工作流程**：`Call action "readSteering" with powerName="multi-agent-debate", steeringFile="complete-workflow.md"`
+- **關鍵字觸發**：`Call action "readSteering" with powerName="multi-agent-debate", steeringFile="prompt-interface.md"`
 - **疑難排解**：`Call action "readSteering" with powerName="multi-agent-debate", steeringFile="troubleshooting.md"`
 
 ## 🏗️ 系統架構
