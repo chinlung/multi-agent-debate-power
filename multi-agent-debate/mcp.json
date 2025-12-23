@@ -1,0 +1,46 @@
+{
+    "mcpServers": {
+        "sequential-thinking": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-sequential-thinking"
+            ],
+            "disabled": false,
+            "autoApprove": [
+                "sequentialthinking"
+            ]
+        },
+        "context7": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@upstash/context7-mcp@latest"
+            ],
+            "disabled": false,
+            "autoApprove": [
+                "resolve_library_id",
+                "get_library_docs"
+            ]
+        },
+        "serena": {
+            "command": "uvx",
+            "args": [
+                "--from",
+                "git+https://github.com/oraios/serena",
+                "serena",
+                "start-mcp-server"
+            ],
+            "disabled": false,
+            "autoApprove": [
+                "read_file",
+                "create_text_file",
+                "list_dir",
+                "find_file",
+                "search_for_pattern",
+                "get_symbols_overview",
+                "find_symbol"
+            ]
+        }
+    }
+}
