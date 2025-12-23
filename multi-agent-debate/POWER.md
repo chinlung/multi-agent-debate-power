@@ -50,16 +50,17 @@ author: "SCL"
 - Orchestrator 分析需求並配置思考角度
 - 識別需求類型和關鍵約束條件
 
-### Phase 1：並行初始方案生成
-- 三個 Perspective Agents 並行提出解決方案
+### Phase 1：初始方案生成（⚡ 並行執行）
+- 三個 Perspective Agents **並行**提出解決方案
 - 每個代理從不同角度深度分析問題
+- 關鍵：在同一個 function_calls block 中同時發起多個 invokeSubAgent
 
 ### Phase 2：批判審查
 - Critic 客觀審查所有方案並提出挑戰
 - 根據可行性、效益、風險控制三維度評分
 
-### Phase 3：並行反駁與修正
-- 各 Agent 並行回應 Critic 的挑戰
+### Phase 3：反駁與修正（⚡ 並行執行）
+- 各 Agent **並行**回應 Critic 的挑戰
 - 修正方案或堅持立場，表明最終態度
 
 ### Phase 4：共識檢查

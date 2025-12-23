@@ -16,9 +16,13 @@ async function executeCompleteDebate(userRequirement, maxRounds = 10) {
   let debateHistory = []
   let currentAgentStates = {}
   
-  // Phase 0: 需求分析與角度配置（序列執行）
+  // ============================================================
+  // 🎯 Phase 0: 需求分析與角度配置
+  // ============================================================
+  
   console.log("📋 Phase 0: Orchestrator 分析需求並配置角度...")
   
+  // 🎯 Orchestrator Subagent 調用（必須先完成）
   const orchestrator = await invokeSubAgent({
     name: "general-task-execution",
     prompt: `
@@ -30,15 +34,6 @@ async function executeCompleteDebate(userRequirement, maxRounds = 10) {
 1. 使用 mcp_sequential_thinking_sequentialthinking 進行結構化需求分析
 2. 根據需求類型決定最適合的三個思考角度
 3. 輸出需求分析報告和角度配置
-
-參考角度配置：
-- 架構設計：效能優先 vs 可維護性優先 vs 擴展性優先
-- 功能開發：快速交付 vs 品質優先 vs 使用者體驗優先
-- 效能優化：演算法優化 vs 快取策略 vs 架構重構
-- 問題修復：快速修補 vs 根本解決 vs 防禦性重構
-- 技術選型：主流穩定 vs 新興技術 vs 自研方案
-
-輸出格式參考 agent-definitions.md 中的 Orchestrator 格式。
 
 **重要**：請在輸出中明確指定三個 Agent 的思考角度：
 - Agent A 角度：[具體角度名稱]
@@ -52,80 +47,61 @@ async function executeCompleteDebate(userRequirement, maxRounds = 10) {
   
   // 從 Orchestrator 結果中提取角度配置
   const angleConfig = extractAnglesFromOrchestrator(orchestrator)
-  
   console.log("🎭 提取到的角度配置：", angleConfig)
 
-  // Phase 1: 初始方案生成（並行，使用 Orchestrator 配置的角度）
-  console.log("📋 Phase 1: 並行生成初始方案（使用動態角度）...")
+  // ============================================================
+  // 🎭 Phase 1: 初始方案生成（⚡ 並行執行三個 Subagent）
+  // ============================================================
+  // 關鍵：在同一個 function_calls block 中同時發起三個 invokeSubAgent
+  // 這樣 Kiro 會並行執行這三個 subagent
+  // ============================================================
   
-  const [agentA, agentB, agentC] = await Promise.all([
-    
-    invokeSubAgent({
+  console.log("📋 Phase 1: 並行生成初始方案...")
+  
+  // ⚡ 並行執行：在同一個 function_calls block 中同時調用三個 subagent
+  // <function_calls>
+  //   <invoke name="invokeSubAgent">Agent A...</invoke>
+  //   <invoke name="invokeSubAgent">Agent B...</invoke>
+  //   <invoke name="invokeSubAgent">Agent C...</invoke>
+  // </function_calls>
+  
+  const [agentA, agentB, agentC] = await parallelInvokeSubAgents([
+    {
       name: "general-task-execution",
       prompt: `
 你是 Perspective Agent A。
-
 需求描述：${userRequirement}
 思考角度：${angleConfig.agentA}（由 Orchestrator 分析決定）
-
-Orchestrator 的完整分析：
-${orchestrator}
-
-請執行：
-1. 使用 mcp_sequential_thinking_sequentialthinking 深度分析
-2. 如需技術資料，使用 mcp_context7_resolve_library_id 和 mcp_context7_get_library_docs
-3. 如需程式碼分析，使用 serena 相關工具
-4. 從「${angleConfig.agentA}」角度提出完整解決方案
-
-輸出格式參考 agent-definitions.md 中的 Agent A 方案格式。
+Orchestrator 的完整分析：${orchestrator}
+請從「${angleConfig.agentA}」角度提出完整解決方案。
       `,
       explanation: `Agent A 提出 ${angleConfig.agentA} 方案`
-    }),
-
-    invokeSubAgent({
+    },
+    {
       name: "general-task-execution",
       prompt: `
 你是 Perspective Agent B。
-
 需求描述：${userRequirement}
 思考角度：${angleConfig.agentB}（由 Orchestrator 分析決定）
-
-Orchestrator 的完整分析：
-${orchestrator}
-
-請執行：
-1. 使用 mcp_sequential_thinking_sequentialthinking 深度分析
-2. 如需技術資料，使用 context7 工具
-3. 如需程式碼分析，使用 serena 工具
-4. 從「${angleConfig.agentB}」角度提出完整解決方案
-
-輸出格式參考 agent-definitions.md 中的 Agent B 方案格式。
+Orchestrator 的完整分析：${orchestrator}
+請從「${angleConfig.agentB}」角度提出完整解決方案。
       `,
       explanation: `Agent B 提出 ${angleConfig.agentB} 方案`
-    }),
-
-    invokeSubAgent({
+    },
+    {
       name: "general-task-execution",
       prompt: `
 你是 Perspective Agent C。
-
 需求描述：${userRequirement}
 思考角度：${angleConfig.agentC}（由 Orchestrator 分析決定）
-
-Orchestrator 的完整分析：
-${orchestrator}
-
-請執行：
-1. 使用 mcp_sequential_thinking_sequentialthinking 深度分析
-2. 如需技術資料，使用 context7 工具
-3. 如需程式碼分析，使用 serena 工具
-4. 從「${angleConfig.agentC}」角度提出完整解決方案
-
-輸出格式參考 agent-definitions.md 中的 Agent C 方案格式。
+Orchestrator 的完整分析：${orchestrator}
+請從「${angleConfig.agentC}」角度提出完整解決方案。
       `,
       explanation: `Agent C 提出 ${angleConfig.agentC} 方案`
-    })
+    }
   ])
+  
+  console.log("✅ Phase 1 完成：三個 Agent 並行生成方案")
 
   // 儲存初始狀態
   currentAgentStates = {
@@ -176,78 +152,49 @@ ${currentAgentStates.agentC.solution}
       explanation: `第 ${currentRound} 輪 Critic 審查`
     })
 
-    // Phase 3: 反駁與修正（並行）
-    console.log("💬 Phase 3: 並行回應 Critic 挑戰...")
+    // ============================================================
+    // Phase 3: 反駁與修正（⚡ 並行執行）
+    // ============================================================
+    console.log("💬 Phase 3: 三個 Agent 並行回應 Critic 挑戰...")
     
-    const [agentAResponse, agentBResponse, agentCResponse] = await Promise.all([
-      
-      invokeSubAgent({
+    // ⚡ 並行執行：在同一個 function_calls block 中同時調用三個 subagent
+    const [agentAResponse, agentBResponse, agentCResponse] = await parallelInvokeSubAgents([
+      {
         name: "general-task-execution",
         prompt: `
 你是 Perspective Agent A，請回應第 ${currentRound} 輪的 Critic 挑戰：
-
-你的當前方案：
-${currentAgentStates.agentA.solution}
-
-Critic 的挑戰：
-${criticResult}
-
-其他 Agent 的方案：
-Agent B: ${currentAgentStates.agentB.solution}
-Agent C: ${currentAgentStates.agentC.solution}
-
-請執行：
-1. 使用 mcp_sequential_thinking_sequentialthinking 分析挑戰
-2. 決定舉證反駁或承認修正
-3. 如需修正，提供修正後的方案
-4. 評估其他 Agent 的方案
-5. 表明最終立場（堅持原方案/修正後堅持/同意Agent B/同意Agent C）
-
-輸出格式參考 agent-definitions.md 中的反駁回應格式。
+你的當前方案：${currentAgentStates.agentA.solution}
+Critic 的挑戰：${criticResult}
+其他 Agent 的方案：Agent B: ${currentAgentStates.agentB.solution}, Agent C: ${currentAgentStates.agentC.solution}
+請回應挑戰並表明最終立場。
         `,
         explanation: `Agent A 第 ${currentRound} 輪回應`
-      }),
-
-      invokeSubAgent({
+      },
+      {
         name: "general-task-execution",
         prompt: `
 你是 Perspective Agent B，請回應第 ${currentRound} 輪的 Critic 挑戰：
-
-你的當前方案：
-${currentAgentStates.agentB.solution}
-
-Critic 的挑戰：
-${criticResult}
-
-其他 Agent 的方案：
-Agent A: ${currentAgentStates.agentA.solution}
-Agent C: ${currentAgentStates.agentC.solution}
-
-請執行相同的回應流程...
+你的當前方案：${currentAgentStates.agentB.solution}
+Critic 的挑戰：${criticResult}
+其他 Agent 的方案：Agent A: ${currentAgentStates.agentA.solution}, Agent C: ${currentAgentStates.agentC.solution}
+請回應挑戰並表明最終立場。
         `,
         explanation: `Agent B 第 ${currentRound} 輪回應`
-      }),
-
-      invokeSubAgent({
+      },
+      {
         name: "general-task-execution",
         prompt: `
 你是 Perspective Agent C，請回應第 ${currentRound} 輪的 Critic 挑戰：
-
-你的當前方案：
-${currentAgentStates.agentC.solution}
-
-Critic 的挑戰：
-${criticResult}
-
-其他 Agent 的方案：
-Agent A: ${currentAgentStates.agentA.solution}
-Agent B: ${currentAgentStates.agentB.solution}
-
-請執行相同的回應流程...
+你的當前方案：${currentAgentStates.agentC.solution}
+Critic 的挑戰：${criticResult}
+其他 Agent 的方案：Agent A: ${currentAgentStates.agentA.solution}, Agent B: ${currentAgentStates.agentB.solution}
+請回應挑戰並表明最終立場。
         `,
         explanation: `Agent C 第 ${currentRound} 輪回應`
-      })
+      }
     ])
+    
+    console.log("✅ Phase 3 完成：三個 Agent 並行回應")
 
     // 更新 Agent 狀態
     currentAgentStates.agentA = {
